@@ -1,11 +1,9 @@
-import { exec as execOld, execSync, spawn as spawnOld } from 'node:child_process';
-import path = require('node:path');
-import { promisify } from 'node:util';
+import { exec, execSync } from 'node:child_process';
 import { TypedEmitter } from 'tiny-typed-emitter';
 import { FullCommand, RemoteDebuggingPort, ScriptWareMPath } from '../constants';
-import { exec as prompt } from 'sudo-prompt';
-
-const exec = promisify(execOld);
+import { WebSocket } from 'ws';
+import fetch from 'node-fetch';
+import { IInjectorEvents } from './IInjectorEvents';
 
 /**
  * SAVE THIS:
@@ -20,7 +18,8 @@ export class ScriptWareInjector {
 	/**
 	 * The event emitter for the injector
 	 */
-	public events: TypedEmitter;
+	public events: TypedEmitter<IInjectorEvents>;
+	public client!: WebSocket;
 
 	private injected: boolean = false;
 
@@ -29,36 +28,85 @@ export class ScriptWareInjector {
 	}
 
 	/**
-	 * Evaluates code in swm devtools
+	 * Gets the websocket url from devtools page
 	 * @private
+	 * @returns Promise<string>
+	 */
+	private async getWebSocketUrl() {
+		try {
+			const response = await fetch(`http://localhost:${RemoteDebuggingPort}/json`);
+			const json = (await response.json()) as { webSocketDebuggerUrl: string }[];
+
+			const url = json[0].webSocketDebuggerUrl;
+
+			console.log(json, url);
+
+			return url;
+		} catch (err) {
+			throw err;
+		}
+	}
+
+	/**
+	 * Evaluates code in swm devtools
 	 * @param {string} code - The javascript code to evaluate
 	 * @returns {Promise<void>}
 	 */
-	private devToolsEvaluate(code: string): Promise<void> {
-		return Promise.resolve();
+	public async devToolsEvaluate(code: string): Promise<void> {
+		// check if the websocket is open
+		if (this.client && this.client.readyState === WebSocket.OPEN) {
+			return this.client.send(
+				JSON.stringify({
+					id: 1337,
+					method: 'Runtime.evaluate',
+					params: {
+						expression: code,
+					},
+				}),
+			);
+		}
+
+		const url = await this.getWebSocketUrl();
+		if (!url) {
+			throw new Error('Could not get websocket url');
+		}
+		this.client = new WebSocket(url as unknown as string);
+
+		this.client.on('open', () => {
+			this.client.send(
+				JSON.stringify({
+					id: 1337,
+					method: 'Runtime.evaluate',
+					params: {
+						expression: code,
+					},
+				}),
+			);
+		});
+
+		this.client.on('message', (data) => {
+			const json = JSON.parse(data.toString());
+
+			console.log('message: ', json);
+		});
+
+		this.client.on('error', console.error);
 	}
 
 	/**
 	 * Opens ScriptWare M in devtools mode
 	 * @returns {Promise<void>}
 	 */
-	public async openScriptWareM(): Promise<void> {
-		execOld(FullCommand, (error, stdout, stderr) => {
+	public async openAndInject(): Promise<void> {
+		exec(FullCommand, (error) => {
 			if (error) {
 				console.error(error);
 			}
+			this.events.emit('injected');
 		});
 
 		// exec(`"/Applications/Script-Ware.app/Contents/MacOS/Script-Ware" --args "r
 		// emote-debugging-port=12321"`);
-	}
-
-	/**
-	 * Injects the injector into swm devtools
-	 * @returns {void}
-	 */
-	public inject(): void {
-		return;
 	}
 
 	/**
@@ -72,13 +120,8 @@ export class ScriptWareInjector {
 	 * To get errors, you must listen to the "error" event.
 	 */
 	public evaluate(code: string) {
-		if (!this.injected) {
-			console.log('SWM Must be injected!');
-			return;
-		}
-
 		return this.devToolsEvaluate(`
-			runScript(\`${code}\`);
+			${code}
 		`);
 	}
 }

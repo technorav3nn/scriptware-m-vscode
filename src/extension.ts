@@ -1,24 +1,47 @@
 import * as vscode from 'vscode';
 import { ScriptWareInjector } from './lib/injector/ScriptWareInjector';
-import { isMacOS } from './util';
+import { isMacOS, isScriptWareOpenWithDevTools } from './util';
 
-// This method is called when the extension is activated
+const injector = new ScriptWareInjector();
+
 export function activate(context: vscode.ExtensionContext) {
-	const injector = new ScriptWareInjector();
-
 	if (!isMacOS()) {
 		vscode.window.showErrorMessage('ScriptWare M is only supported on macOS.');
 		return;
 	}
 
-	console.log('Congratulations, your extension "scriptware-m-vscode" is now active!');
+	let injectAndOpenItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	injectAndOpenItem.command = 'scriptware-m-vscode.injectAndOpen';
+	injectAndOpenItem.tooltip = 'Open Injected ScriptWareM (SWM)';
+	injectAndOpenItem.text = '$(triangle-right) Open Injected ScriptWareM (SWM)';
 
-	let disposable = vscode.commands.registerCommand('scriptware-m-vscode.helloWorld', () => {
-		injector.openScriptWareM();
-		injector.inject();
+	injectAndOpenItem.show();
+
+	let runItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+	runItem.command = 'scriptware-m-vscode.execute';
+	runItem.tooltip = 'Execute Script (SWM)';
+	runItem.text = '$(triangle-right) Execute Script (SWM)';
+
+	runItem.show();
+
+	let executeDisposable = vscode.commands.registerCommand('scriptware-m-vscode.execute', () => {
+		injector.evaluate("alert('hello world!')");
 	});
 
-	context.subscriptions.push(disposable);
+	let injectAndOpenDisposable = vscode.commands.registerCommand('scriptware-m-vscode.injectAndOpen', () => {
+		if (isScriptWareOpenWithDevTools()) {
+			console.log('already injected!');
+		}
+
+		injector.openAndInject();
+
+		injector.events.on('injected', () => {
+			console.log('injected');
+		});
+	});
+
+	context.subscriptions.push(executeDisposable);
+	context.subscriptions.push(injectAndOpenDisposable);
 
 	const { document } = vscode.window.activeTextEditor ?? { document: null };
 	if (document) {
@@ -29,4 +52,6 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 }
 
-export function deactivate() {}
+export function deactivate() {
+	injector.client.close();
+}

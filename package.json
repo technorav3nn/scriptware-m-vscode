@@ -10,14 +10,18 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:scriptware-m-vscode.helloWorld"
+		"*"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"commands": [
 			{
-				"command": "scriptware-m-vscode.helloWorld",
-				"title": "Hello World"
+				"command": "scriptware-m-vscode.execute",
+				"title": "Execute ScriptWareM"
+			},
+			{
+				"command": "scriptware-m-vscode.injectAndOpen",
+				"title": "Inject and Open Script-Ware M"
 			}
 		]
 	},
@@ -33,8 +37,10 @@
 		"@types/glob": "^8.0.0",
 		"@types/mocha": "^10.0.1",
 		"@types/node": "16.x",
+		"@types/node-fetch": "^2.6.2",
 		"@types/shelljs": "^0.8.11",
 		"@types/vscode": "^1.74.0",
+		"@types/ws": "^8.5.3",
 		"@typescript-eslint/eslint-plugin": "^5.45.0",
 		"@typescript-eslint/parser": "^5.45.0",
 		"@vscode/test-electron": "^2.2.0",
@@ -44,6 +50,7 @@
 		"typescript": "^4.9.3"
 	},
 	"dependencies": {
+		"node-fetch": "2",
 		"shelljs": "^0.8.5",
 		"sudo-prompt": "^9.2.1",
 		"tiny-typed-emitter": "^2.1.0",

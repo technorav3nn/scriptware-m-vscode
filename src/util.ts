@@ -1,27 +1,20 @@
 import { exec } from 'child_process';
 import * as os from 'node:os';
+import { RemoteDebuggingPort, ScriptWareMPath } from './lib/constants';
 
 export function isMacOS() {
 	return process.platform === 'darwin';
 }
 
-export function openTerminal(cmd: string) {
-	if (os.platform() !== 'darwin') {
-		throw new Error('Not supported');
-	}
+export function isScriptWareOpenWithDevTools() {
+	const command = `ps -A | grep ${ScriptWareMPath}`;
+	let isOpen = false;
 
-	const command = [
-		`osascript -e 'tell application "Terminal" to activate'`,
-		`-e 'tell application "System Events" to tell process "Terminal" to keystroke "t" using command down'`,
-		`-e 'tell application "Terminal" to do script "open -a '/Applications/Script-Ware.app/Contents/MacOS/Script-Ware' --args 'remote-debugging-port=19872'
-		" in selected tab of the front window'`,
-	].join(' ');
-
-	const child = exec(command, (error, stdout, stderr) => {
-		if (error) {
-			console.error(error);
-		}
+	exec(command, (error, stdout, stderr) => {
+		const found = stdout.includes(ScriptWareMPath) && stdout.includes(RemoteDebuggingPort.toString());
+		console.log(found, stdout);
+		isOpen = found;
 	});
 
-	child.on('exit', (code) => console.log('Open terminal exit'));
+	return isOpen;
 }
