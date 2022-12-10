@@ -1,11 +1,21 @@
 import * as vscode from 'vscode';
+import { ScriptWareInjector } from './lib/injector/ScriptWareInjector';
+import { isMacOS } from './util';
 
 // This method is called when the extension is activated
 export function activate(context: vscode.ExtensionContext) {
+	const injector = new ScriptWareInjector();
+
+	if (!isMacOS()) {
+		vscode.window.showErrorMessage('ScriptWare M is only supported on macOS.');
+		return;
+	}
+
 	console.log('Congratulations, your extension "scriptware-m-vscode" is now active!');
 
 	let disposable = vscode.commands.registerCommand('scriptware-m-vscode.helloWorld', () => {
-		vscode.window.showInformationMessage('Hello World from scriptware-m-vscode!');
+		injector.openScriptWareM();
+		injector.inject();
 	});
 
 	context.subscriptions.push(disposable);
